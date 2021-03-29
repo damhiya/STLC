@@ -1,14 +1,18 @@
 module STLC where
 
+open import Function.Base
+open import Data.Empty
 open import Data.Product as P
 open import Data.Maybe as M
-open import Data.List hiding (lookup)
 open import Data.Nat.Base renaming (ℕ to Name)
 import Data.Nat.Properties as Name
 open import Relation.Nullary
 open import Relation.Binary.Definitions
 open import Relation.Binary.PropositionalEquality.Core
 
+import Map
+open Map Name Name._≟_
+  
 data Type : Set where
   Base : Type
   Arr : Type → Type → Type
@@ -32,36 +36,39 @@ data Value : Term → Set where
   VAbs : ∀ {x t σ} → Value (Abs x σ t)
 
 Context : Set
-Context = List (Name × Type)
-
-infix 5 _+:_
-_+:_ : Context → Name × Type → Context
-Γ +: x:σ = x:σ ∷ Γ
-
-infix 3 _∈_
-data _∈_ : Name × Type → Context → Set where
-  ∈-head : ∀ {Γ x σ} → (x , σ) ∈ Γ +: (x , σ) 
-  ∈-cons : ∀ {Γ x₁ x₂ σ₁ σ₂} → x₁ ≢ x₂ → (x₁ , σ₁) ∈ Γ → (x₁ , σ₁) ∈ Γ +: (x₂ , σ₂)
-
-lookup : (Γ : Context) → (x : Name) → Maybe (∃[ σ ] (x , σ) ∈ Γ)
-lookup [] x = nothing
-lookup ((x₂ , σ) ∷ xs) x₁ with x₁ Name.≟ x₂
-... | yes refl = just (σ , ∈-head)
-... | no x₁≢x₂ = M.map (map₂ (∈-cons x₁≢x₂)) (lookup xs x₁)
+Context = Map Type
 
 data TypeCheck (Γ : Context) : Term → Type → Set where
   TCVar : ∀ {x σ} → (x , σ) ∈ Γ → TypeCheck Γ (Var x) σ
   TCAbs : ∀ {x t σ τ} → TypeCheck (Γ +: (x , σ)) t τ → TypeCheck Γ (Abs x σ t) (Arr σ τ)
   TCApp : ∀ {t₁ t₂ σ τ} → TypeCheck Γ t₁ (Arr σ τ) → TypeCheck Γ t₂ σ → TypeCheck Γ (App t₁ t₂) τ
 
-type-check : (Γ : Context) → (t : Term) → Maybe (∃[ τ ] TypeCheck Γ t τ)
-type-check Γ (Var x) = M.map (P.map₂ TCVar) (lookup Γ x)
-type-check Γ (Abs x σ t) = M.map (P.map (λ τ → Arr σ τ) TCAbs) (type-check (Γ +: (x , σ)) t)
-type-check Γ (App t₁ t₂) = type-check Γ t₁ >>= λ where
-    (Base     , tc₁) → nothing
-    (Arr σ₁ τ , tc₁) → type-check Γ t₂ >>= λ {(σ₂ , tc₂) → app σ₁ σ₂ τ tc₁ tc₂}
-  where
-    app : ∀ σ₁ σ₂ τ → TypeCheck Γ t₁ (Arr σ₁ τ) → TypeCheck Γ t₂ σ₂ → Maybe (∃[ τ ] TypeCheck Γ (App t₁ t₂) τ)
-    app σ₁ σ₂ with σ₁ ≟ σ₂
-    ... | yes refl = λ τ tc₁ tc₂ → just (τ , TCApp tc₁ tc₂)
-    ... | no σ₁≢σ₂ = λ τ tc₁ tc₂ → nothing
+Base≢σ→τ : ∀ {σ τ} → Base ≡ Arr σ τ → ⊥
+Base≢σ→τ ()
+  
+type-unique : ∀ {Γ t τ₁ τ₂} → TypeCheck Γ t τ₁ → TypeCheck Γ t τ₂ → τ₁ ≡ τ₂
+type-unique {t = Var x} (TCVar x:τ₁∈Γ) (TCVar x:τ₂∈Γ) = ∈-unique x:τ₁∈Γ x:τ₂∈Γ
+type-unique {t = Abs x σ t} (TCAbs tc₁) (TCAbs tc₂) = cong (Arr σ) (type-unique tc₁ tc₂)
+type-unique {t = App t₁ t₂} (TCApp tc₁ _) (TCApp tc₂ _) with type-unique tc₁ tc₂
+... | refl = refl
+
+type-check : (Γ : Context) → (t : Term) → Dec (∃[ τ ] TypeCheck Γ t τ)
+type-check Γ (Var x) with lookup x Γ
+... | yes (σ , x:σ∈Γ) = yes (σ , TCVar x:σ∈Γ) 
+... | no ∄σ[x:σ∈Γ] = no λ where (τ , TCVar x:τ∈Γ) → ∄σ[x:σ∈Γ] (τ , x:τ∈Γ)
+type-check Γ (Abs x σ t) with type-check (Γ +: (x , σ)) t
+... | yes (τ , Γ,x:σ⊢t:τ) = yes (Arr σ τ , TCAbs Γ,x:σ⊢t:τ)
+... | no ∄τ[Γ,x:σ⊢t:τ] = no λ where (Arr σ τ , TCAbs Γ,x:σ⊢t:τ) → ∄τ[Γ,x:σ⊢t:τ] (τ , Γ,x:σ⊢t:τ)
+type-check Γ (App t₁ t₂) with type-check Γ t₁
+... | no ∄σ[Γ⊢t₁:σ] = no λ where (τ , TCApp {σ = σ} Γ⊢t₁:σ→τ tc) → ∄σ[Γ⊢t₁:σ] (Arr σ τ , Γ⊢t₁:σ→τ)
+... | yes (Base , Γ⊢t₁:Base) = no λ where (τ , TCApp {σ = σ} Γ⊢t₁:σ→τ _) → (⊥-elim ∘ Base≢σ→τ) (type-unique Γ⊢t₁:Base Γ⊢t₁:σ→τ)
+... | yes (Arr σ₁ τ , Γ⊢t₁:σ₁→τ) with type-check Γ t₂
+...   | no ∄σ[Γ⊢t₂:σ] = no λ where (τ , TCApp {σ = σ} _ Γ⊢t₂:σ) → ∄σ[Γ⊢t₂:σ] (σ , Γ⊢t₂:σ)
+...   | yes (σ₂ , Γ⊢t₂:σ₂) with σ₁ ≟ σ₂
+...     | yes refl = yes (τ , TCApp Γ⊢t₁:σ₁→τ Γ⊢t₂:σ₂) 
+...     | no σ₁≢σ₂ = no λ where
+  (τ , TCApp {σ = σ} Γ⊢t₁:σ→τ Γ⊢t₂:σ) → case (type-unique Γ⊢t₁:σ₁→τ Γ⊢t₁:σ→τ , type-unique Γ⊢t₂:σ₂ Γ⊢t₂:σ) of λ where
+    (refl , refl) → σ₁≢σ₂ refl
+
+Subst : Set
+Subst = Map Term
