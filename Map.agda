@@ -38,6 +38,10 @@ k:x∉∅ ()
 ∈-unique ∈-head (∈-cons k≢k _) = ⊥-elim (k≢k refl)
 ∈-unique (∈-cons _ ∈₁) (∈-cons _ ∈₂) = ∈-unique ∈₁ ∈₂
 
+-- ∈-shadow : ∀ {M : Map A} {k k₁ x x₁ x₂} → (k , x) ∈ (M +: (k₁ , x₂)) → (k , x) ∈ (M +: (k₁ , x₁) +: (k₁ , x₂))
+-- ∈-shadow ∈-head = ∈-head
+-- ∈-shadow (∈-cons k≢k₁ x) = ∈-cons k≢k₁ (∈-cons k≢k₁ x)
+  
 lookup : (k : K) → (M : Map A) → Dec (∃[ x ] (k , x) ∈ M)
 lookup k [] = no (λ (x , k:x∈∅) → k:x∉∅ k:x∈∅)
 lookup k ((k' , x') ∷ M) with k ≟ k'
@@ -47,3 +51,4 @@ lookup k ((k' , x') ∷ M) with k ≟ k'
 ...   | no  ∄x[k:x∉M] = no λ where
   (x , ∈-head) → k≢k' refl
   (x , ∈-cons k≢k'₂ k:x∈M) → ∄x[k:x∉M] (x , k:x∈M)
+  
