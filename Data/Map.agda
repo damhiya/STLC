@@ -6,7 +6,7 @@ open import Level
 open import Function.Base
 open import Data.Empty
 open import Data.Product
-open import Data.List
+open import Data.List hiding ([_])
 open import Data.List.Relation.Unary.First
 open import Data.List.Relation.Unary.First.Properties
 open import Relation.Binary.PropositionalEquality.Core
@@ -20,7 +20,8 @@ Map : Set a → Set (c ⊔ a)
 Map A = List (K × A)
 
 pattern ∅ = []
-pattern _∷[_∶_] M k x = (k , x) ∷ M
+pattern [_,_∶_] M k x = (k , x) ∷ M
+open import Data.List.Relation.Unary.First using ([_]; _∷_) public
 
 _∈_ : K → Map A → Set _
 k ∈ M = First (_≢_ k ∘ proj₁) (_≡_ k ∘ proj₁) M
