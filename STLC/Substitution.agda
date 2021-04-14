@@ -73,3 +73,6 @@ apply-subst : ∀ {Γ Δ τ} → Subst Γ Δ → ∃[ t ] Γ ⊢ t ∶ τ → �
 apply-subst Γ⇒Δ (var x , ⊢var x∈Γ) = subst-var Γ⇒Δ x∈Γ , subst-var-⟨⟩ Γ⇒Δ x∈Γ
 apply-subst {Δ = Δ} Γ⇒Δ (lam x σ t , ⊢lam ⊢₁) = map (lam _ σ) ⊢lam (apply-subst (rebind x (χ Δ) σ χ-∉ Γ⇒Δ) (t , ⊢₁))
 apply-subst Γ⇒Δ (app t₁ t₂ , ⊢app ⊢₁ ⊢₂) = zip app ⊢app (apply-subst Γ⇒Δ (t₁ , ⊢₁)) (apply-subst Γ⇒Δ (t₂ , ⊢₂))
+
+⊢subst : ∀ {Γ x t₁ t₂ σ τ} → [ Γ , x ∶ σ ] ⊢ t₁ ∶ τ → Γ ⊢ t₂ ∶ σ → ∃[ t ] Γ ⊢ t ∶ τ
+⊢subst {x = x} {t₁ = t₁} {t₂ = t₂} {σ = σ} [Γ,x∶σ]⊢t₁∶τ Γ⊢t₂∶σ = apply-subst (subst₁ x t₂ σ Γ⊢t₂∶σ) (t₁ , [Γ,x∶σ]⊢t₁∶τ)
