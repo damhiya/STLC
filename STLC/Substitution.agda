@@ -1,5 +1,6 @@
 module STLC.Substitution where
 
+open import Function.Base
 open import Data.Product
 open import Relation.Binary.PropositionalEquality.Core
 
@@ -20,32 +21,31 @@ weakening-var-⟨⟩ : ∀ {Γ Δ x} → (Γ⇒Δ : Weakening Γ Δ) → (x∈Γ
 weakening-var-⟨⟩ (weak-base z∉Γ) x∈Γ = refl
 weakening-var-⟨⟩ (weak-ind Γ⇒Δ) [ refl ] = refl
 weakening-var-⟨⟩ (weak-ind Γ⇒Δ) (x≢y ∷ x∈Γ) = weakening-var-⟨⟩ Γ⇒Δ x∈Γ
-  
+
 weakening : ∀ {Γ Δ t τ} → Weakening Γ Δ → Γ ⊢ t ∶ τ → Δ ⊢ t ∶ τ
 weakening {Δ = Δ} {t = t} {τ = τ} Γ⇒Δ (⊢var x∈Γ) = subst (λ τ → Δ ⊢ t ∶ τ) (weakening-var-⟨⟩ Γ⇒Δ x∈Γ) (⊢var (weakening-var Γ⇒Δ x∈Γ))
 weakening Γ⇒Δ (⊢lam [Γ,x∶σ]⊢t∶τ) = ⊢lam (weakening (weak-ind Γ⇒Δ) [Γ,x∶σ]⊢t∶τ)
 weakening Γ⇒Δ (⊢app ⊢₁ ⊢₂) = ⊢app (weakening Γ⇒Δ ⊢₁) (weakening Γ⇒Δ ⊢₂)
-  
+
 weakening₁ : ∀ {Γ z t σ τ} → z ∉ Γ → Γ ⊢ t ∶ τ → [ Γ , z ∶ σ ] ⊢ t ∶ τ
 weakening₁ z∉Γ = weakening (weak-base z∉Γ)
 
 data Subst : Context → Context → Set where
-  subst₁ : ∀ {Γ} x t τ → Γ ⊢ t ∶ τ → Subst [ Γ , x ∶ τ ] Γ
+  subst-base : ∀ {Γ} x t τ → Γ ⊢ t ∶ τ → Subst [ Γ , x ∶ τ ] Γ
   rebind : ∀ {Γ Δ} x z σ → z ∉ Δ → Subst Γ Δ → Subst [ Γ , x ∶ σ ] [ Δ , z ∶ σ ]
 
 module _ where
-  open import Function.Base
   open import Data.Nat.Base
   open import Data.Nat.Properties as ℕ
   open import Data.List as List
   open import Data.List.Extrema ℕ.≤-totalOrder
   open import Data.List.Relation.Unary.All as All
   open import Data.List.Relation.Unary.First.Properties
-  
+
   χ : Context → Var
   χ ∅ = zero
   χ [ Γ , x ∶ σ ] = (suc ∘ proj₁ ∘ argmax proj₁ (x , σ)) Γ
-  
+
   χ-∉ : ∀ {Γ} → χ Γ ∉ Γ
   χ-∉ {∅} ()
   χ-∉ {Γ@([ Δ , x ∶ σ ])} [ χ[Γ]≡x ] = χ[Γ]≢x χ[Γ]≡x
@@ -58,14 +58,14 @@ module _ where
       all-≢ = All.map (≢-sym ∘ <⇒≢ ∘ s≤s) (f[xs]≤f[argmax] {f = proj₁} (x , σ) Δ)
 
 subst-var : ∀ {Γ Δ x} → Subst Γ Δ → x ∈ Γ → Term
-subst-var {[ Γ , x ∶ σ ]} {x = x} (subst₁ x t σ Γ⊢t∶τ) [ refl ] = t
-subst-var {[ Γ , y ∶ σ ]} {x = x} (subst₁ y t τ Γ⊢t∶τ) (x≢y ∷ x∈Γ) = var x
+subst-var {[ Γ , x ∶ σ ]} {x = x} (subst-base x t σ Γ⊢t∶τ) [ refl ] = t
+subst-var {[ Γ , y ∶ σ ]} {x = x} (subst-base y t τ Γ⊢t∶τ) (x≢y ∷ x∈Γ) = var x
 subst-var {[ Γ , x ∶ σ ]} {x = x} (rebind x z σ z∉Δ Γ⇒Δ) [ refl ] = var z
 subst-var {[ Γ , y ∶ σ ]} {x = x} (rebind y z σ z∉Δ Γ⇒Δ) (x≢y ∷ x∈Γ) = subst-var Γ⇒Δ x∈Γ
 
 subst-var-⟨⟩ : ∀ {Γ Δ x} (s : Subst Γ Δ) (x∈Γ : x ∈ Γ) → Δ ⊢ subst-var s x∈Γ ∶ Γ ⟨ x∈Γ ⟩
-subst-var-⟨⟩ {[ Γ , x ∶ σ ]} {x = x} (subst₁ x t σ Γ⊢t∶τ) [ refl ] = Γ⊢t∶τ
-subst-var-⟨⟩ {[ Γ , y ∶ σ ]} {x = x} (subst₁ y t τ Γ⊢t∶τ) (x≢y ∷ x∈Γ) = ⊢var x∈Γ
+subst-var-⟨⟩ {[ Γ , x ∶ σ ]} {x = x} (subst-base x t σ Γ⊢t∶τ) [ refl ] = Γ⊢t∶τ
+subst-var-⟨⟩ {[ Γ , y ∶ σ ]} {x = x} (subst-base y t τ Γ⊢t∶τ) (x≢y ∷ x∈Γ) = ⊢var x∈Γ
 subst-var-⟨⟩ {[ Γ , x ∶ σ ]} {x = x} (rebind x z σ z∉Δ s) [ refl ] = ⊢var [ refl ]
 subst-var-⟨⟩ {[ Γ , y ∶ σ ]} {x = x} (rebind y z σ z∉Δ s) (x≢y ∷ x∈Γ) = weakening₁ z∉Δ (subst-var-⟨⟩ s x∈Γ)
 
@@ -75,4 +75,7 @@ apply-subst {Δ = Δ} Γ⇒Δ (lam x σ t , ⊢lam ⊢₁) = map (lam _ σ) ⊢l
 apply-subst Γ⇒Δ (app t₁ t₂ , ⊢app ⊢₁ ⊢₂) = zip app ⊢app (apply-subst Γ⇒Δ (t₁ , ⊢₁)) (apply-subst Γ⇒Δ (t₂ , ⊢₂))
 
 ⊢subst : ∀ {Γ x t₁ t₂ σ τ} → [ Γ , x ∶ σ ] ⊢ t₁ ∶ τ → Γ ⊢ t₂ ∶ σ → ∃[ t ] Γ ⊢ t ∶ τ
-⊢subst {x = x} {t₁ = t₁} {t₂ = t₂} {σ = σ} [Γ,x∶σ]⊢t₁∶τ Γ⊢t₂∶σ = apply-subst (subst₁ x t₂ σ Γ⊢t₂∶σ) (t₁ , [Γ,x∶σ]⊢t₁∶τ)
+⊢subst {x = x} {t₁ = t₁} {t₂ = t₂} {σ = σ} [Γ,x∶σ]⊢t₁∶τ Γ⊢t₂∶σ = apply-subst (subst-base x t₂ σ Γ⊢t₂∶σ) (t₁ , [Γ,x∶σ]⊢t₁∶τ)
+
+subst₁ : ∀ {Γ x t₁ t₂ σ τ} → [ Γ , x ∶ σ ] ⊢ t₁ ∶ τ → Γ ⊢ t₂ ∶ σ → Term
+subst₁ = proj₁ ∘₂ ⊢subst
